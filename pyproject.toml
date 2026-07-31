@@ -28,6 +28,9 @@ dependencies = [
     "keyring>=25.4.1",
 ]
 
+[project.entry-points."keyring.backends"]
+Cloudsmith = "keyrings.cloudsmith.backend"
+
 [project.urls]
 Homepage = "https://github.com/Expensify/cloudsmith-keyring"
 Issues = "https://github.com/Expensify/cloudsmith-keyring/issues"
