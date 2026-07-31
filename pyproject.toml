@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cloudsmith-keyring"
+version = "0.1.0"
+description = "Keyring backend for Cloudsmith credentials"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "cloudsmith-cli>=1.20.1,<2",
+    "keyring>=25.4.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/Expensify/cloudsmith-keyring"
+Issues = "https://github.com/Expensify/cloudsmith-keyring/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6",
+    "ruff>=0.12",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/keyrings"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=keyrings.cloudsmith --cov-report=term-missing --cov-fail-under=100"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
