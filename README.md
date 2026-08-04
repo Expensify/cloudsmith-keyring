@@ -1,15 +1,13 @@
 # cloudsmith-keyring
 
-`cloudsmith-keyring` is a read-only [keyring](https://pypi.org/project/keyring/)
-backend that supplies credentials from the
-[Cloudsmith CLI](https://github.com/cloudsmith-io/cloudsmith-cli) to Python
-package clients. Its primary use case is authenticating
-[uv](https://docs.astral.sh/uv/) to private Cloudsmith Python repositories
-through uv's subprocess keyring provider.
+`cloudsmith-keyring` connects uv's subprocess keyring provider to the
+[Cloudsmith CLI](https://github.com/cloudsmith-io/cloudsmith-cli) SAML login
+flow. When uv needs credentials for a private Cloudsmith Python repository, the
+backend reuses a valid Cloudsmith SSO session or opens the CLI's browser-based
+authentication flow and returns the resulting access token.
 
-The backend supports Cloudsmith API keys, profiles, SAML sessions, and OIDC
-credential discovery. It returns credentials only for Cloudsmith's official
-Python endpoints or API-validated Python custom domains.
+This is the package's only authentication mechanism. It deliberately does not
+return API keys, credentials from `credentials.ini`, or OIDC credentials.
 
 ## Requirements
 
@@ -27,11 +25,6 @@ Install the backend alongside the `keyring` executable that uv will find on
 uv tool install keyring --with cloudsmith-keyring
 ```
 
-The package depends on `cloudsmith-cli`, so the keyring environment can use the
-same credential resolution behavior as the CLI. An existing standalone or
-separately installed `cloudsmith` command can still be used to establish the
-session.
-
 Confirm that keyring discovered the backend:
 
 ```shell
@@ -43,32 +36,6 @@ The output should include:
 ```text
 keyrings.cloudsmith.backend.CloudsmithKeyring (priority: 9)
 ```
-
-## Authenticate Cloudsmith
-
-Authenticate using any source supported by the Cloudsmith CLI. The provider
-uses the CLI's normal precedence order:
-
-1. `CLOUDSMITH_API_KEY`
-2. The selected profile in `credentials.ini`
-3. A SAML session stored in the system keyring by `cloudsmith auth`
-4. OIDC discovery when `CLOUDSMITH_ORG` and `CLOUDSMITH_SERVICE_SLUG` are set
-
-For example, use an API key:
-
-```shell
-export CLOUDSMITH_API_KEY="your-api-key"
-```
-
-Or establish a SAML session:
-
-```shell
-cloudsmith auth --owner your-workspace
-```
-
-Profiles and explicit configuration files are also supported through
-`CLOUDSMITH_PROFILE`, `CLOUDSMITH_CONFIG_FILE`, and
-`CLOUDSMITH_CREDENTIALS_FILE`.
 
 ## Configure uv
 
@@ -85,22 +52,18 @@ url = "https://dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple/"
 publish-url = "https://python.cloudsmith.io/OWNER/REPOSITORY/"
 ```
 
-The provider's Basic Auth username is always `token`. Current versions of uv
-can retrieve both fields from keyring without configuring a username. To
-support older uv versions, or to make the username explicit, set:
+Set the non-secret Basic Auth username:
 
 ```shell
 export UV_INDEX_CLOUDSMITH_USERNAME=token
 ```
 
-You can enable the provider per invocation instead of in `pyproject.toml`:
+Specifying the username also lets uv stream the Cloudsmith CLI's authentication
+messages while the browser flow is running. Without it, current uv versions can
+still request both credential fields, but buffer keyring's stderr until the
+lookup completes.
 
-```shell
-UV_KEYRING_PROVIDER=subprocess uv sync
-```
-
-Normal uv operations will now request the password from `keyring` when the
-Cloudsmith index requires authentication:
+Normal uv commands can now authenticate automatically:
 
 ```shell
 uv lock
@@ -108,33 +71,17 @@ uv sync
 uv add your-private-package
 ```
 
+The first command that needs credentials opens the Cloudsmith SAML login page in
+your browser. After authentication completes, the CLI stores the SSO session in
+the system keyring and the original uv command continues.
+
 ### Publishing
 
-The same backend can authenticate `uv publish`. Set the non-secret username
-when needed and select the configured index:
+Use the same non-secret username when publishing:
 
 ```shell
 export UV_PUBLISH_USERNAME=token
 uv publish --index cloudsmith
-```
-
-## Custom Domains
-
-Official support is limited to these hosts:
-
-- `dl.cloudsmith.io` for package downloads
-- `python.cloudsmith.io` for package publishing
-
-Other `*.cloudsmith.io` and `*.cloudsmith.com` services are deliberately
-rejected. This prevents a credential intended for a Python repository from
-being returned for an unrelated Cloudsmith service.
-
-For a custom Python repository domain, set `CLOUDSMITH_ORG`. The backend asks
-the Cloudsmith API for enabled, validated custom domains with the Python backend
-kind and uses the CLI's one-hour domain cache:
-
-```shell
-export CLOUDSMITH_ORG=your-workspace
 ```
 
 ## How It Works
@@ -146,53 +93,101 @@ keyring get SERVICE token
 keyring get SERVICE --mode creds
 ```
 
-`cloudsmith-keyring` is registered through the `keyring.backends` entry-point
-group. It recognizes the requested service, resolves a credential through the
-Cloudsmith CLI provider chain, and returns it as the Basic Auth password. The
-backend does not store, update, or delete credentials.
+For an official Cloudsmith URL, the backend extracts the workspace from the
+path. For example, it infers `expensify` from:
 
-This mechanism is separate from `uv auth login` and the experimental
-`uv auth helper` protocol. It is used by uv package operations when
-`keyring-provider = "subprocess"` is enabled.
-
-## Troubleshooting
-
-Test the complete keyring lookup without making an HTTP request:
-
-```shell
-keyring get \
-  https://dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple/ \
-  token
+```text
+https://dl.cloudsmith.io/basic/expensify/dev/python/simple/
 ```
 
-The command prints the credential on success and exits with status 1 when no
-matching credential is available. Avoid running it in logs because its output
-is secret.
+The backend then:
 
-If uv cannot find `keyring`, ensure the executable installed by `uv tool` is on
-`PATH`. If Cloudsmith cannot resolve credentials, verify the active source with:
+1. Asks Cloudsmith's SAML keyring provider for a valid access token, including
+   its normal refresh behavior.
+2. Runs the equivalent of the following command when no usable token exists:
+
+   ```shell
+   python -m cloudsmith_cli auth --owner expensify
+   ```
+
+3. Routes all interactive CLI output to stderr so keyring's stdout remains a
+   valid credential response.
+4. Resolves the newly stored SAML token and returns it as the Basic Auth
+   password for username `token`.
+
+The CLI process uses the same Python environment as the keyring backend. When uv
+provides no stdin to its helper, the backend opens the controlling terminal so
+Cloudsmith can still request a 2FA code.
+
+An existing valid SAML session is reused without reopening the browser.
+
+## Custom Domains
+
+Official support covers:
+
+- `dl.cloudsmith.io` for package downloads
+- `python.cloudsmith.io` for package publishing
+
+Other `*.cloudsmith.io` and `*.cloudsmith.com` services are rejected.
+
+For a custom Python repository domain, provide the workspace because it cannot
+be inferred from the URL:
 
 ```shell
-cloudsmith whoami --verbose
+export CLOUDSMITH_ORG=your-workspace
 ```
 
-For SAML, the Cloudsmith CLI and keyring subprocess must run as the same OS user
-so they can access the same system keyring.
+The backend authenticates that workspace through the same CLI SAML flow, then
+uses the Cloudsmith API to verify that the requested host is an enabled,
+validated Python custom domain before returning the token.
 
-## Development
+## Local Testing
 
-Install dependencies and run all checks with uv:
+Install the project dependencies and verify backend discovery:
 
 ```shell
 uv sync
+uv run keyring --list-backends
+```
+
+Then test the complete interactive flow:
+
+```shell
+uv run keyring get \
+  "https://dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple/" \
+  token
+```
+
+If there is no valid SAML session, this command opens the Cloudsmith login page.
+It prints the access token after authentication, so do not run it in logs.
+
+To exercise uv itself, make the development keyring executable available and
+install a private package:
+
+```shell
+export PATH="$PWD/.venv/bin:$PATH"
+
+uv pip install \
+  --keyring-provider subprocess \
+  --index-url \
+  "https://token@dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple/" \
+  YOUR_PRIVATE_PACKAGE
+```
+
+## Development
+
+Run all checks with:
+
+```shell
 uv run ruff format --check .
 uv run ruff check .
 uv run pytest
 uv build
 ```
 
-The test suite includes direct keyring subprocess tests for both invocation
-forms used by uv.
+The tests verify token reuse, browser-auth fallback, owner inference, custom
+domain validation, terminal handling, and clean subprocess output. They mock the
+browser flow and never require live Cloudsmith credentials.
 
 ## License
 
