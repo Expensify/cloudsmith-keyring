@@ -1,14 +1,38 @@
-name: Publish
+name: Release
 
+# Create a release on any new tag which is a valid version number.
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "*.*.*"
 
-permissions:
-  contents: read
+# Only allow one release job to run at a time
+# this prevents a race condition where two merges occur
+# which causes two version bumps and then the releases
+# being done out of order.
+concurrency: release
 
 jobs:
-  pypi:
+  build:
+    name: Publish to PyPI
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    permissions:
+      contents: read
+
+    steps:
+      - uses: useblacksmith/checkout@2d63ce5ba61677748c4e92f6eb578a8694226225 # v1.2.0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Build distribution
+        run: uv build
+      - name: Upload distributions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dists
+          path: dist/
+          if-no-files-found: error
+
+  pypi-publish:
+    needs: [build]
     name: Publish to PyPI
     runs-on: blacksmith-2vcpu-ubuntu-2404
     environment:
@@ -16,16 +40,20 @@ jobs:
       url: https://pypi.org/p/cloudsmith-keyring
     permissions:
       contents: read
+      # for trusted publishing.
       id-token: write
 
     steps:
+      # This checkout might seem useless but it lets the uv step below use the uv cache.
       - uses: useblacksmith/checkout@2d63ce5ba61677748c4e92f6eb578a8694226225 # v1.2.0
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.11.32"
-      - name: Build distribution
-        run: uv build
-      - name: Check distribution metadata
-        run: uvx --from twine==6.2.0 twine check dist/*
-      - name: Publish distribution
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+          persist-credentials: false
+
+      - name: Download distributions
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: dists
+          path: dist/
+
+      - name: Publish
+        run: uv publish dist/*
