@@ -1,8 +1,8 @@
 # ruff: noqa: ARG001,ARG005,D100,D103,SLF001
 
 import io
+import subprocess
 from contextlib import contextmanager
-from types import SimpleNamespace
 
 import pytest
 
@@ -20,7 +20,7 @@ def test_authenticate_runs_cloudsmith_cli_with_protocol_safe_output(monkeypatch)
     def fake_runner(command, **kwargs):
         captured["command"] = command
         captured["kwargs"] = kwargs
-        return SimpleNamespace(returncode=0)
+        return subprocess.CompletedProcess(command, returncode=0)
 
     monkeypatch.setattr(auth, "_authentication_stdin", fake_stdin)
 
@@ -50,7 +50,10 @@ def test_authenticate_raises_when_cli_fails(monkeypatch):
 
     with pytest.raises(auth.AuthenticationError, match="status 7"):
         auth.authenticate(
-            "expensify", runner=lambda *args, **kwargs: SimpleNamespace(returncode=7)
+            "expensify",
+            runner=lambda *args, **kwargs: subprocess.CompletedProcess(
+                [], returncode=7
+            ),
         )
 
 
