@@ -48,20 +48,16 @@ keyring-provider = "subprocess"
 
 [[tool.uv.index]]
 name = "cloudsmith"
-url = "https://dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple/"
-publish-url = "https://python.cloudsmith.io/OWNER/REPOSITORY/"
+url = "https://token@dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple/"
+publish-url = "https://token@python.cloudsmith.io/OWNER/REPOSITORY/"
 ```
 
-Set the non-secret Basic Auth username:
+or add the index to your `uv.toml`
 
-```shell
-export UV_INDEX_CLOUDSMITH_USERNAME=token
+```toml
+keyring-provider = "subprocess"
+extra-index-url = ["https://token@dl.cloudsmith.io/basic/OWNER/REPOSITORY/python/simple"]
 ```
-
-Specifying the username also lets uv stream the Cloudsmith CLI's authentication
-messages while the browser flow is running. Without it, current uv versions can
-still request both credential fields, but buffer keyring's stderr until the
-lookup completes.
 
 Normal uv commands can now authenticate automatically:
 
@@ -75,15 +71,6 @@ The first command that needs credentials opens the Cloudsmith SAML login page in
 your browser. After authentication completes, the CLI stores the SSO session in
 the system keyring and the original uv command continues.
 
-### Publishing
-
-Use the same non-secret username when publishing:
-
-```shell
-export UV_PUBLISH_USERNAME=token
-uv publish --index cloudsmith
-```
-
 ## How It Works
 
 uv's subprocess provider invokes one of these commands:
@@ -94,10 +81,10 @@ keyring get SERVICE --mode creds
 ```
 
 For an official Cloudsmith URL, the backend extracts the workspace from the
-path. For example, it infers `expensify` from:
+path. For example, it infers `FOO` from:
 
 ```text
-https://dl.cloudsmith.io/basic/expensify/dev/python/simple/
+https://dl.cloudsmith.io/basic/FOO/dev/python/simple/
 ```
 
 The backend then:
@@ -107,7 +94,7 @@ The backend then:
 2. Runs the equivalent of the following command when no usable token exists:
 
    ```shell
-   python -m cloudsmith_cli auth --owner expensify
+   python -m cloudsmith_cli auth --owner FOO
    ```
 
 3. Routes all interactive CLI output to stderr so keyring's stdout remains a
