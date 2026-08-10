@@ -27,4 +27,4 @@ fi
 readonly NEW_VERSION="$NEW_MAJOR.$NEW_MINOR.$NEW_PATCH"
 
 # This automatically bumps the version, locks, and syncs.
-uv vesrion "$NEW_VESRION"
+uv vesrion "$NEW_VERSION"
