@@ -20,7 +20,11 @@ jobs:
       contents: read
 
     steps:
-      - uses: useblacksmith/checkout@2d63ce5ba61677748c4e92f6eb578a8694226225 # v1.2.0
+      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.2.0
+        with:
+          allow-inside-container: true
+          dissociate: true
+
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Build distribution
         run: uv build
@@ -45,8 +49,10 @@ jobs:
 
     steps:
       # This checkout might seem useless but it lets the uv step below use the uv cache.
-      - uses: useblacksmith/checkout@2d63ce5ba61677748c4e92f6eb578a8694226225 # v1.2.0
+      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.2.0
         with:
+          allow-inside-container: true
+          dissociate: true
           persist-credentials: false
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
