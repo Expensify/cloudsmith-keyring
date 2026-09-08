@@ -22,7 +22,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.2.0
+      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.6.0
         with:
           allow-inside-container: true
           dissociate: true
@@ -42,7 +42,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.2.0
+      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.6.0
         with:
           allow-inside-container: true
           dissociate: true
@@ -62,7 +62,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.2.0
+      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.6.0
         with:
           allow-inside-container: true
           dissociate: true
