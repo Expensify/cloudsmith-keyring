@@ -27,7 +27,7 @@ jobs:
       # Auth for the repo is setup at this step, so we need to pass the bot token
       # in so that it does not use the GITHUB_TOKEN when the tag is pushed. This
       # allows this workflow to trigger another workflow from the tag event.
-      - uses: useblacksmith/checkout@2d63ce5ba61677748c4e92f6eb578a8694226225 # v1.2.0
+      - uses: useblacksmith/checkout@f50565632710173b0e366f2cd39b928d31362815 # v1.6.0
         with:
           ref: main
           token: ${{ steps.generateAppToken.outputs.token }}
