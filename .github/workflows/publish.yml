@@ -15,7 +15,7 @@ concurrency: release
 jobs:
   build:
     name: Publish to PyPI
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     permissions:
       contents: read
 
@@ -35,7 +35,7 @@ jobs:
   pypi-publish:
     needs: [build]
     name: Publish to PyPI
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     environment:
       name: pypi
       url: https://pypi.org/p/cloudsmith-keyring
